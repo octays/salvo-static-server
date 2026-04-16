@@ -1,6 +1,6 @@
 [package]
 name = "salvo-static-server"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 
 [[bin]]
@@ -8,7 +8,7 @@ name = "static-server"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5.60", features = ["derive"] }
-salvo = { version= "0.89.3", features = ["quinn", "serve-static", "acme", "rustls", "logging", "compression"] }
-tokio = "1.50.0"
-tracing-subscriber = "0.3.22"
+clap = { version = "4.6.1", features = ["derive"] }
+salvo = { version= "0.91.1", features = ["quinn", "serve-static", "acme", "rustls", "logging", "compression"] }
+tokio = "1.52.0"
+tracing-subscriber = "0.3.23"

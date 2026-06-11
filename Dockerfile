@@ -1,5 +1,5 @@
 # 多阶段构建 - 构建阶段
-FROM rust:alpine3.23 AS builder
+FROM rust:alpine AS builder
 # 设置工作目录
 WORKDIR /app
 # 复制 Cargo 文件
@@ -16,7 +16,7 @@ RUN touch src/main.rs && cargo build --release
 FROM alpine:latest AS runtime
 # 安装运行时依赖
 RUN apk update && apk add --no-cache \
-    ca-certificates
+    ca-certificates openssl
 # 创建应用目录和静态文件目录
 RUN mkdir -p /app/static
 # 从构建阶段复制二进制文件

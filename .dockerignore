@@ -1,23 +1,23 @@
-# Rust 构建产物
+# Rust build artifacts
 target/
 **/*.rs.bk
 
-# 开发工具
+# Development tools
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 系统文件
+# System files
 .DS_Store
 Thumbs.db
 
-# 日志文件
+# Log files
 *.log
 logs/
 
-# 临时文件
+# Temporary files
 temp/
 tmp/
 
@@ -30,15 +30,15 @@ Dockerfile
 .dockerignore
 Makefile
 
-# 文档
+# Documentation
 README.md
 *.md
 
-# 测试文件
+# Test files
 tests/
  benches/
 
-# 依赖缓存
+# Dependency cache
 .cargo/
 
 # CI/CD

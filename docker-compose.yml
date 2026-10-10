@@ -1,5 +1,5 @@
 services:
-  # 开发环境
+  # Development environment
   app-dev:
     build: .
     container_name: salvo-static-dev
@@ -14,7 +14,7 @@ services:
     profiles:
       - dev
 
-  # 生产环境
+  # Production environment
   app-prod:
     build: .
     container_name: salvo-static-prod

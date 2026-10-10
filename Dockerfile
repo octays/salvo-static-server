@@ -1,36 +1,36 @@
-# 多阶段构建 - 构建阶段
+# Multi-stage build: builder stage
 FROM rust:alpine AS builder
-# 设置工作目录
+# Set the working directory
 WORKDIR /app
-# 复制 Cargo 文件
+# Copy the Cargo manifest and lockfile
 COPY Cargo.toml Cargo.lock ./
-# 创建空的源目录以缓存依赖
+# Create placeholder source to cache dependency builds
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-# 构建依赖（利用 Docker 层缓存）
+# Build dependencies using the Docker layer cache
 RUN cargo build --release --locked && rm -rf src
-# 复制源代码
+# Copy source files
 COPY src ./src
-# 构建应用
+# Build the application
 RUN touch src/main.rs && cargo build --release --locked
-# 运行阶段
+# Runtime stage
 FROM alpine:latest AS runtime
-# 安装运行时依赖
+# Install runtime dependencies
 RUN apk update && apk add --no-cache \
     ca-certificates openssl curl
-# 创建应用目录和静态文件目录
+# Create the application and static file directories
 RUN mkdir -p /app/static
-# 从构建阶段复制二进制文件
+# Copy the executable from the builder stage
 COPY --from=builder /app/target/release/static-server /usr/local/bin/
 
-# 设置工作目录
+# Set the working directory
 WORKDIR /app
 
-# 暴露端口
+# Expose server ports
 EXPOSE 8080 8443
 
-# 健康检查
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
-# 启动命令
+# Startup command
 CMD ["static-server", "--http-addr", "0.0.0.0:8080", "--static-dir", "/app/static"]

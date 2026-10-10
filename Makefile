@@ -2,7 +2,7 @@
 
 .PHONY: all build build-local push precompress help
 
-# 变量定义
+# Variables
 BINARY_NAME=static-server
 IMAGE_NAME=novo-one/static-server
 VERSION?=$(shell grep '^version = ' Cargo.toml | cut -d '"' -f 2)
@@ -11,20 +11,20 @@ TAG?=$(VERSION)
 STATIC_DIR?=static
 PRECOMPRESS_ARGS?=
 
-# 默认目标
+# Default target
 all: build
 
-# 为发布目录生成预压缩文件；Brotli 可通过 PRECOMPRESS_ARGS=--brotli 启用。
+# Precompress release assets; use PRECOMPRESS_ARGS=--brotli to include Brotli.
 precompress:
 	python3 tools/precompress.py "$(STATIC_DIR)" $(PRECOMPRESS_ARGS)
 
-# 构建
+# Build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	cargo build --release
 	@echo "Build complete: target/release/$(BINARY_NAME)"
 
-# 本地多架构构建
+# Build local images for multiple architectures
 build-local:
 	@echo "Building Docker image $(IMAGE_NAME):$(TAG) for amd64..."
 	docker buildx build \
@@ -43,7 +43,7 @@ build-local:
 	@echo "Multi-arch Docker images built locally!"
 	@echo "Images: $(IMAGE_NAME)-amd64:$(TAG), $(IMAGE_NAME)-arm64:$(TAG)"
 
-# 推送
+# Push images
 push: build
 	@echo "Building Docker image $(IMAGE_NAME):$(TAG) for multi-arch..."
 	docker buildx build --push \
@@ -53,7 +53,7 @@ push: build
 		.
 	@echo "Multi-arch Docker image pushed successfully!"
 
-# 帮助
+# Help
 help:
 	@echo "Available commands:"
 	@echo "  all         - Build static-server (default)"

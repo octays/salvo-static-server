@@ -1,4 +1,4 @@
-# 单一构建阶段：依赖安装 + 构建
+# Install dependencies and build the application
 ARG BUILDER_IMAGE=node:20.19.6-alpine
 ARG RUNTIME_IMAGE=hub.yeastardigital.com/novo-one/static-server:0.1.0
 
@@ -6,15 +6,15 @@ FROM ${BUILDER_IMAGE} AS builder
 
 WORKDIR /app
 
-# 复制所有源代码和配置文件
+# Copy all source and configuration files
 COPY . .
 
-# 设置构建环境变量
+# Set build environment variables
 ENV NODE_ENV=production
 ENV TURBO_TELEMETRY_DISABLED=1
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# 安装 pnpm、安装依赖、构建应用、清理构建产物中的不必要文件
+# Install pnpm and dependencies, build the application, and remove source maps
 RUN corepack enable && \
     corepack prepare pnpm@8.15.6 --activate && \
     pnpm install --frozen-lockfile --prefer-offline --ignore-scripts && \
@@ -22,8 +22,8 @@ RUN corepack enable && \
     pnpm build:web && \
     find /app/apps/web/dist -name "*.map" -delete 2>/dev/null || true
 
-# 运行阶段需要重新定义 ARG
+# Start the runtime stage
 FROM ${RUNTIME_IMAGE} AS runtime
 
-# 复制构建好的静态资源
+# Copy built static assets
 COPY --from=builder /app/apps/web/dist/ /app/static/

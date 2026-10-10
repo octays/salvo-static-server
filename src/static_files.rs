@@ -63,8 +63,13 @@ impl StaticFiles {
             if res.status_code.is_none() {
                 res.render(StatusError::not_found());
             }
-            res.headers_mut()
-                .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+            if matches!(
+                res.status_code,
+                Some(StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::NOT_MODIFIED)
+            ) {
+                res.headers_mut()
+                    .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+            }
         }
         // Vary on encoding so shared caches distinguish compressed and original content.
         res.headers_mut()

@@ -127,6 +127,23 @@ static-server \
 
 启用 `--force-https` 时，普通 HTTP 请求返回 308 重定向，ACME 验证请求仍通过 HTTP 处理。若外部 443 映射到内部 8443，请加 `--https-redirect-port 443`。
 
+### 自定义缓存策略
+
+```bash
+static-server \
+  --cache-control "public, max-age=3600" \
+  --cache-rule "/assets/*=public, max-age=31536000, immutable" \
+  --cache-rule "/umi.js=no-cache" \
+  --cache-rule "/umi.css=no-cache" \
+  --cache-rule "/config.json=no-store"
+```
+
+`--cache-control` 设置普通静态资源的默认策略，`--cache-rule` 可重复指定，最后一条匹配规则生效。规则匹配解码并规范化后的 URL 路径，忽略查询参数，区分大小写；`*` 匹配任意数量的字符，包括 `/`，其余字符按字面匹配。
+
+默认文件、回退页面、无扩展名路径及 `--no-cache-patterns` 指定的文件始终使用 `no-cache`，但允许配置更严格的 `no-store`。`no-cache` 允许存储，每次使用前须向服务器验证；`no-store` 禁止存储。未配置新参数时维持原有缓存行为。
+
+策略仅用于静态内容的 200、206 和 304 响应，支持 GET、HEAD、条件请求和范围请求。重定向、错误响应及 ACME 验证不会应用这些策略。仅当资源 URL 随内容变化时，才建议使用一年缓存和 `immutable`；固定名称的 `umi.js`、`umi.css` 应保留重新验证。
+
 ## ⚙️ 配置选项
 
 | 参数 | 默认值 | 描述 |
@@ -142,6 +159,9 @@ static-server \
 | `--try-file` | `index.html` | 默认文件名 |
 | `--default-page` | `index.html` | 找不到文件时的回退页面 |
 | `--no-compression` | `false` | 禁用响应压缩 |
+| `--no-cache-patterns` | `index.html` | 强制重新验证的文件名，逗号分隔，精确匹配 |
+| `--cache-control` | - | 普通静态资源的默认 Cache-Control |
+| `--cache-rule` | - | 路径模式=Cache-Control，可重复，最后匹配生效 |
 | `--log-level` | `info` | 日志级别 |
 
 ## 🐳 Docker 部署
@@ -271,8 +291,9 @@ make dev-debug
 
 ## 📋 TODO
 
-- [ ] 支持 Brotli 和 Zstd 压缩
-- [ ] 添加缓存控制头配置
+- [x] 支持 Brotli 和 Zstd 动态压缩，以及预压缩静态资源读取
+- [x] 支持 no-cache 文件名配置，默认页和回退页强制 no-cache
+- [x] 支持自定义缓存策略（max-age、immutable、按路径配置等）
 - [ ] 支持虚拟主机
 - [ ] 添加 WebDAV 支持
 - [ ] 集成 Prometheus 指标

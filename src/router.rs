@@ -1,5 +1,6 @@
 use crate::args::Args;
-use crate::middleware::{ForceHttps, NoCacheMiddleware};
+use crate::cache::CacheControl;
+use crate::middleware::ForceHttps;
 use crate::static_files::{StaticFiles, method_not_allowed};
 use salvo::compression::Compression;
 use salvo::http::Method;
@@ -8,17 +9,20 @@ use salvo::prelude::*;
 
 pub(crate) fn build_router(args: &Args) -> Router {
     // Always include the default and fallback pages in the no-cache configuration.
-    let no_cache = NoCacheMiddleware::new(
+    let cache = CacheControl::new(
         args.no_cache_patterns.iter().cloned().chain(
             [&args.try_file, &args.default_page]
                 .into_iter()
                 .map(|path| path.rsplit('/').next().unwrap_or("").to_owned()),
         ),
+        args.cache_control.clone(),
+        args.cache_rules.clone(),
     );
 
     let mut static_router = Router::with_path("{*path}").goal(method_not_allowed).push(
         Router::new()
             .filter_fn(|req, _| matches!(*req.method(), Method::GET | Method::HEAD))
+            .hoop(cache)
             .goal(StaticFiles::new(
                 &args.static_dir,
                 &args.try_file,
@@ -26,7 +30,7 @@ pub(crate) fn build_router(args: &Args) -> Router {
             )),
     );
 
-    let mut router = Router::new().hoop(Logger::new()).hoop(no_cache);
+    let mut router = Router::new().hoop(Logger::new());
 
     // The static route covers all methods; ACME matches first and bypasses redirects.
     if args.force_https {

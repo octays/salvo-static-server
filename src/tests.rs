@@ -9,6 +9,112 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static FIXTURE_ID: AtomicUsize = AtomicUsize::new(0);
 
+#[test]
+fn validates_cache_configuration() {
+    for value in ["", "public\r\nx-test: injected"] {
+        assert!(Args::try_parse_from(["static-server", "--cache-control", value]).is_err());
+    }
+    for value in [
+        "/app.js",
+        "app.js=no-cache",
+        "/app.js?x=1=no-cache",
+        "/app.js=",
+    ] {
+        assert!(Args::try_parse_from(["static-server", "--cache-rule", value]).is_err());
+    }
+}
+
+#[tokio::test]
+async fn cache_rules_respect_precedence_and_protected_responses() {
+    let fixture = Fixture::new();
+    let service = Service::new(build_router(&fixture.args(&[
+        "--no-compression",
+        "--cache-control",
+        "public, max-age=3600",
+        "--cache-rule",
+        "/*=public, max-age=31536000, immutable",
+        "--cache-rule",
+        "/app*.js=public, max-age=600",
+        "--cache-rule",
+        "/config.json=no-store",
+        "--cache-rule",
+        "/private/*=no-store",
+    ])));
+    for (path, expected) in [
+        ("/app.js", "public, max-age=600"),
+        ("/app.js?version=1", "public, max-age=600"),
+        ("/a%70p.js", "public, max-age=600"),
+        ("/config.json", "no-store"),
+        ("/index.html", "no-cache"),
+        ("/", "no-cache"),
+        ("/missing.js", "no-cache"),
+        ("/private/missing.js", "no-store"),
+    ] {
+        let response = TestClient::get(format!("http://localhost{path}"))
+            .send(&service)
+            .await;
+        assert_eq!(response.status_code, Some(StatusCode::OK), "{path}");
+        assert_eq!(response.headers()[CACHE_CONTROL], expected, "{path}");
+    }
+    let get = TestClient::get("http://localhost/app.js")
+        .send(&service)
+        .await;
+    let head = TestClient::head("http://localhost/app.js")
+        .send(&service)
+        .await;
+    let conditional = TestClient::get("http://localhost/app.js")
+        .add_header("if-none-match", get.headers()["etag"].clone(), true)
+        .send(&service)
+        .await;
+    let range = TestClient::get("http://localhost/app.js")
+        .add_header("range", "bytes=0-5", true)
+        .send(&service)
+        .await;
+    assert_eq!(conditional.status_code, Some(StatusCode::NOT_MODIFIED));
+    assert_eq!(range.status_code, Some(StatusCode::PARTIAL_CONTENT));
+    for response in [head, conditional, range] {
+        assert_eq!(response.headers()[CACHE_CONTROL], "public, max-age=600");
+    }
+    let service = Service::new(build_router(&fixture.args(&[
+        "--cache-control",
+        "public, max-age=3600",
+        "--no-cache-patterns",
+        "config.json",
+        "--default-page",
+        "absent.html",
+    ])));
+    for (path, expected) in [
+        ("/app.js", "public, max-age=3600"),
+        ("/config.json", "no-cache"),
+    ] {
+        let response = TestClient::get(format!("http://localhost{path}"))
+            .send(&service)
+            .await;
+        assert_eq!(response.headers()[CACHE_CONTROL], expected);
+    }
+    let missing = TestClient::get("http://localhost/missing.js")
+        .send(&service)
+        .await;
+    assert_eq!(missing.status_code, Some(StatusCode::NOT_FOUND));
+    assert!(missing.headers().get(CACHE_CONTROL).is_none());
+    let post = TestClient::post("http://localhost/app.js")
+        .send(&service)
+        .await;
+    assert!(post.headers().get(CACHE_CONTROL).is_none());
+    let service = Service::new(build_router(&fixture.args(&[
+        "--cache-control",
+        "no-store",
+        "--no-cache-patterns",
+        "config.json",
+    ])));
+    for path in ["/", "/index.html", "/config.json", "/missing.js"] {
+        let response = TestClient::get(format!("http://localhost{path}"))
+            .send(&service)
+            .await;
+        assert_eq!(response.headers()[CACHE_CONTROL], "no-store", "{path}");
+    }
+}
+
 struct Fixture(PathBuf);
 
 impl Fixture {
@@ -250,6 +356,8 @@ async fn redirects_http_but_preserves_https_and_acme() {
         (vec!["--https-redirect-port", "443"], "example.com"),
     ] {
         let mut flags = vec![
+            "--cache-control",
+            "public, max-age=3600",
             "--https-enable",
             "--acme-domain",
             "example.com",
@@ -267,6 +375,7 @@ async fn redirects_http_but_preserves_https_and_acme() {
             .send(&service)
             .await;
         assert_eq!(response.status_code, Some(StatusCode::PERMANENT_REDIRECT));
+        assert!(response.headers().get(CACHE_CONTROL).is_none());
         assert_eq!(
             response.headers()[LOCATION],
             format!("https://{authority}/users/jane.doe?tab=1&sort=asc")
@@ -285,6 +394,7 @@ async fn redirects_http_but_preserves_https_and_acme() {
             .await;
         assert!(response.headers().get(LOCATION).is_none());
         // Salvo returns the token itself when no ACME challenge key is registered.
+        assert!(response.headers().get(CACHE_CONTROL).is_none());
         assert_eq!(response.take_string().await.unwrap(), "unknown");
     }
 }

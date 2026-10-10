@@ -1,3 +1,4 @@
+use crate::cache::{CachePolicy, CacheRule};
 use clap::Parser;
 use std::net::SocketAddr;
 
@@ -60,6 +61,15 @@ pub(crate) struct Args {
     /// Example: --no-cache-patterns index.html,config.json
     #[arg(long, value_delimiter = ',', default_values = &["index.html"])]
     pub(crate) no_cache_patterns: Vec<String>,
+
+    /// Default Cache-Control value for static responses
+    #[arg(long)]
+    pub(crate) cache_control: Option<CachePolicy>,
+
+    /// Path pattern and Cache-Control value: /assets/*=public, max-age=3600
+    /// Repeat to add rules; the last matching rule wins
+    #[arg(long = "cache-rule")]
+    pub(crate) cache_rules: Vec<CacheRule>,
 
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]

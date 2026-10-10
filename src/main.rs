@@ -1,4 +1,5 @@
 mod args;
+mod cache;
 mod logging;
 mod middleware;
 mod router;

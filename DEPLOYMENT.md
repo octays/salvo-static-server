@@ -52,8 +52,6 @@ docker-compose --profile dev up -d
 # 生产环境
 DOMAIN=yourdomain.com docker-compose --profile prod up -d
 
-# 使用 Nginx 反向代理
-docker-compose --profile nginx up -d
 ```
 
 ## 配置选项
@@ -62,35 +60,35 @@ docker-compose --profile nginx up -d
 
 ```bash
 # 仅 HTTP（默认）
-./salvo-static-server
+./static-server
 
 # 自定义端口
-./salvo-static-server --http-addr 0.0.0.0:3000
+./static-server --http-addr 0.0.0.0:3000
 
 # 启用压缩（默认开启）
-./salvo-static-server
+./static-server
 
 # 禁用压缩
-./salvo-static-server --no-compression
+./static-server --no-compression
 ```
 
 ### HTTPS 配置
 
 ```bash
 # HTTPS + ACME 证书
-./salvo-static-server \
+./static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --force-https
 
 # HTTPS + HTTP3
-./salvo-static-server \
+./static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --http3-enable
 
 # 多个静态目录
-./salvo-static-server \
+./static-server \
   --static-dir /var/www/html \
   --static-dir /var/www/assets \
   --try-file index.html \
@@ -98,6 +96,10 @@ docker-compose --profile nginx up -d
 ```
 
 ## 生产环境部署
+
+Compose 提供 `dev` 和 `prod` 两种模式，由静态服务器直接监听公开端口。
+发布前可运行 `make precompress STATIC_DIR=./static` 生成 `.gz`；安装 brotli CLI 后加 `PRECOMPRESS_ARGS=--brotli` 可同时生成 `.br`。
+源文件和压缩文件必须同步更新，并通过静态目录挂载一起提供服务。
 
 ### 系统服务（Systemd）
 
@@ -112,7 +114,7 @@ After=network.target
 Type=simple
 User=salvo
 WorkingDirectory=/opt/salvo-static
-ExecStart=/opt/salvo-static/salvo-static-server \
+ExecStart=/opt/salvo-static/static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --force-https \
@@ -164,7 +166,7 @@ server {
 export RUST_LOG=info
 
 # 运行服务器
-./salvo-static-server --https-enable --acme-domain yourdomain.com
+./static-server --https-enable --acme-domain yourdomain.com
 ```
 
 ## 监控和日志
@@ -173,13 +175,13 @@ export RUST_LOG=info
 
 ```bash
 # 调试模式
-./salvo-static-server --log-level debug
+./static-server --log-level debug
 
 # 错误日志
-./salvo-static-server --log-level error
+./static-server --log-level error
 
 # 结构化日志
-RUST_LOG_FORMAT=json ./salvo-static-server
+RUST_LOG_FORMAT=json ./static-server
 ```
 
 ### 健康检查
@@ -212,14 +214,14 @@ top -p $(pgrep salvo-static-server)
    ```bash
    sudo netstat -tulpn | grep :8080
    # 更换端口
-   ./salvo-static-server --http-addr 0.0.0.0:9090
+   ./static-server --http-addr 0.0.0.0:9090
    ```
 
 2. **权限问题**
    ```bash
    # 使用非特权端口（>1024）
    # 或使用 sudo
-   sudo ./salvo-static-server --http-addr 0.0.0.0:80
+   sudo ./static-server --http-addr 0.0.0.0:80
    ```
 
 3. **SSL 证书问题**

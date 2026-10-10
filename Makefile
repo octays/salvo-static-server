@@ -1,6 +1,6 @@
 # Makefile for static-server
 
-.PHONY: all build build-local push help
+.PHONY: all build build-local push precompress help
 
 # 变量定义
 BINARY_NAME=static-server
@@ -8,9 +8,15 @@ IMAGE_NAME=novo-one/static-server
 VERSION?=$(shell grep '^version = ' Cargo.toml | cut -d '"' -f 2)
 REGISTRY?=hub.yeastardigital.com
 TAG?=$(VERSION)
+STATIC_DIR?=static
+PRECOMPRESS_ARGS?=
 
 # 默认目标
 all: build
+
+# 为发布目录生成预压缩文件；Brotli 可通过 PRECOMPRESS_ARGS=--brotli 启用。
+precompress:
+	python3 tools/precompress.py "$(STATIC_DIR)" $(PRECOMPRESS_ARGS)
 
 # 构建
 build:
@@ -54,3 +60,4 @@ help:
 	@echo "  build       - Build release binary"
 	@echo "  build-local - Build Docker images for amd64 and arm64 locally"
 	@echo "  push        - Build and push multi-arch Docker image"
+	@echo "  precompress - Generate .gz assets (PRECOMPRESS_ARGS=--brotli adds .br)"

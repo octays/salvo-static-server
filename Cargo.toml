@@ -8,7 +8,10 @@ name = "static-server"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive"] }
 salvo = { version= "0.92.2", features = ["quinn", "serve-static", "acme", "rustls", "logging", "compression"] }
-tokio = "1.52.3"
+tokio = "1.53.2"
 tracing-subscriber = "0.3.23"
+
+[dev-dependencies]
+salvo = { version = "0.92.2", features = ["test"] }

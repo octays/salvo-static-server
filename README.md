@@ -27,7 +27,7 @@ cd salvo-static-server
 cargo build --release
 
 # 运行服务器
-./target/release/salvo-static-server
+./target/release/static-server
 ```
 
 ### 使用 Makefile
@@ -65,35 +65,35 @@ docker-compose up -d
 
 ```bash
 # 默认配置（HTTP 8080 端口）
-salvo-static-server
+static-server
 
 # 自定义端口
-salvo-static-server --http-addr 0.0.0.0:3000
+static-server --http-addr 0.0.0.0:3000
 
 # 启用压缩（默认开启）
-salvo-static-server
+static-server
 
 # 禁用压缩
-salvo-static-server --no-compression
+static-server --no-compression
 ```
 
 ### HTTPS 配置
 
 ```bash
 # 启用 HTTPS + ACME 证书
-salvo-static-server \
+static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --https-addr 0.0.0.0:8443
 
 # 强制 HTTPS（HTTP 重定向到 HTTPS）
-salvo-static-server \
+static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --force-https
 
 # 启用 HTTP/3
-salvo-static-server \
+static-server \
   --https-enable \
   --acme-domain yourdomain.com \
   --http3-enable
@@ -103,19 +103,19 @@ salvo-static-server \
 
 ```bash
 # 多个静态目录
-salvo-static-server \
+static-server \
   --static-dir /var/www/html \
   --static-dir /var/www/assets \
   --static-dir /var/www/media
 
 # 自定义默认文件和 404 页面
-salvo-static-server \
+static-server \
   --try-file index.html \
   --default-page custom-404.html \
   --static-dir ./public
 
 # 完整生产配置
-salvo-static-server \
+static-server \
   --http-addr 0.0.0.0:80 \
   --https-addr 0.0.0.0:443 \
   --https-enable \
@@ -125,6 +125,8 @@ salvo-static-server \
   --log-level info
 ```
 
+启用 `--force-https` 时，普通 HTTP 请求返回 308 重定向，ACME 验证请求仍通过 HTTP 处理。若外部 443 映射到内部 8443，请加 `--https-redirect-port 443`。
+
 ## ⚙️ 配置选项
 
 | 参数 | 默认值 | 描述 |
@@ -133,11 +135,12 @@ salvo-static-server \
 | `--https-addr` | `0.0.0.0:8443` | HTTPS 监听地址 |
 | `--https-enable` | `false` | 启用 HTTPS |
 | `--force-https` | `false` | 强制 HTTPS 重定向 |
+| `--https-redirect-port` | HTTPS 监听端口 | 重定向的外部 HTTPS 端口；端口映射时可设置为 443 |
 | `--http3-enable` | `false` | 启用 HTTP/3 (QUIC) |
 | `--acme-domain` | - | ACME 证书域名 |
 | `--static-dir` | `["static"]` | 静态资源目录（可多个） |
 | `--try-file` | `index.html` | 默认文件名 |
-| `--default-page` | `404.html` | 404 页面 |
+| `--default-page` | `index.html` | 找不到文件时的回退页面 |
 | `--no-compression` | `false` | 禁用响应压缩 |
 | `--log-level` | `info` | 日志级别 |
 
@@ -171,7 +174,8 @@ docker run -d \
   salvo-static-server \
   --https-enable \
   --acme-domain yourdomain.com \
-  --force-https
+  --force-https \
+  --https-redirect-port 443
 ```
 
 ### Docker Compose
@@ -191,6 +195,7 @@ services:
     environment:
       - RUST_LOG=info
     command: 
+      - "static-server"
       - "--https-enable"
       - "--acme-domain=yourdomain.com"
       - "--force-https"
@@ -210,6 +215,20 @@ ab -n 10000 -c 100 http://localhost:8080/
 ```
 
 ### 性能优化
+
+发布静态资源前可生成预压缩文件，避免每次请求都动态压缩：
+
+```bash
+make precompress                         # 生成 static 下的 .gz 文件
+make precompress STATIC_DIR=./public     # 自定义发布目录
+make precompress PRECOMPRESS_ARGS=--brotli # 已安装 brotli CLI 时，同时生成 .br
+```
+
+源文件更新后，应重新生成压缩文件，并将它们与源文件一起发布或挂载。
+Salvo 自动选择客户端支持的压缩变体；`--no-compression` 仅关闭动态压缩，仍可提供预压缩文件。
+回退页面直接使用原始文件，并可由动态压缩中间件压缩。
+
+服务器支持 GET 和 HEAD；HEAD 返回相同资源头且正文为空。监听地址使用 `IP:端口`，IPv6 使用 `[::1]:端口`。
 
 - ✅ **响应压缩**：默认启用 Gzip 压缩
 - ✅ **HTTP/2 和 HTTP/3**：多路复用支持
